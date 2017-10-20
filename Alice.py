@@ -41,8 +41,23 @@ def _create_Kab_N2(a_b_key, nonce_secret):
     N2 = Crypto.get_nonce(nonce_secret)
     print("Created nonce N2:", N2, "\n")
     Kab_N2 = Crypto.des3_encrypt(a_b_key, iv, "CBC", N2)
-    return Kab_N2
+    return N2, Kab_N2
 
+# parse Kab{N2-1,N3}
+def _parse_bobs_response(response):
+    response = Crypto.des3_decrypt(a_b_key, iv, "CBC", response)
+    N2_minus_1 = response[:8] # nonce size = 8 bytes
+    N3 = response[8:]
+    if not Crypto.nonce_difference_is_1(N2_minus_1, N2):
+        print("Bob did not send correct N2-1"); sys.exit(0)
+    print("Received correct value for N2-1")
+    print("Received N3:", N3)
+    return N3
+
+
+def _create_Kab_N3_minus_1(N3, a_b_key):
+    N3_minus_1 = Crypto.decrement_hash(N3)
+    return Crypto.des3_encrypt(a_b_key, iv, "CBC", N3_minus_1)
 
 #### START OF PROGRAM ####
 
@@ -83,10 +98,19 @@ server_name = "localhost"
 server_port = 12000 # the port Bob is listening on
 client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.connect((server_name, server_port))
-Kab_N2 = _create_Kab_N2(a_b_key, nonce_secret) # nonce 2 encrypted with key AB
+[N2, Kab_N2] = _create_Kab_N2(a_b_key, nonce_secret) # nonce 2 encrypted with key AB
 msg = ticket_to_bob + Kab_N2 # concatenate bytes
 client_socket.send(msg)
 print("Sent ticket and encrypted nonce to bob:", msg, "\n")
+
+# Receive and parse Bob's response
 response = client_socket.recv(1024)
 print("Alice got from Bob:", response, "\n")
+N3 = _parse_bobs_response(response)
+
+# Send Bob final authentication message
+Kab_N3_minus_1 = _create_Kab_N3_minus_1(N3, a_b_key)
+client_socket.send(Kab_N3_minus_1)
+print("Sent Bob find authentication message")
+
 client_socket.close()

@@ -21,8 +21,8 @@ def _create_des3_cipher(key, iv, mode):
 def des3_encrypt(key, iv, mode, msg):
     mode = _get_des3_mode(mode)
     cipher = _create_des3_cipher(key, iv, mode)
-    pad_len = 8 - len(msg) % 8 # length of padding
-    padding = chr(pad_len) * pad_len # PKCS5 padding content
+    padding_len = 8 - len(msg) % 8
+    padding = chr(padding_len) * padding_len # a la PKCS5
     msg += padding
     return cipher.encrypt(msg)
 
@@ -43,3 +43,21 @@ def get_nonce(secret):
     nonce = hashlib.sha256(duo.encode()).hexdigest()
     nonce = nonce[:8] # only use the first 64 bits as per assignment instructions
     return nonce
+
+# Given a hash digest in string format, returns that hash minus one, in string format
+def decrement_hash(hash):
+    first_chars = hash[:len(hash)-1]
+    last_char = hash[-1]
+    if last_char == "a":
+        return first_chars + "z"
+    if last_char == "1":
+        return first_chars + "9"
+    return first_chars + chr(ord(last_char) - 1)
+
+# Returns True if the nonce received (N_r) is 1 less than the original nonce
+# Expects both nonces to be in string format
+def nonce_difference_is_1(N_r, N_o):
+    if decrement_hash(N_o) == N_r:
+        return True
+    else:
+        return False
