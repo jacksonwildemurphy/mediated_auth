@@ -18,20 +18,20 @@ def _parse_ticket_msg(msg_from_Alice):
     N2 = Crypto.des3_decrypt(a_b_key, iv, "CBC", Kab_N2).decode()
     return [a_b_key, N2]
 
-# Returns Kab{N2 - 1, N3}
+# Returns N3, and Kab{N2 - 1, N3}
 def _create_final_msg(a_b_key, N2):
     N2_minus_1 = Crypto.decrement_hash(N2)
     N3 = Crypto.get_nonce(nonce_secret)
     duo = N2_minus_1 + N3 # concatenate strings
     msg = Crypto.des3_encrypt(a_b_key, iv, "CBC", duo)
-    return msg
+    return N3, msg
 
 # Parse final message of Kab{N3-1} and verify we received correct N3-1
 def _verify_final_msg(final_msg_from_Alice):
-    N3_minus_1 = Crypto.des3_encrypt(a_b_key, iv, "CBC", final_msg_from_Alice)
+    N3_minus_1 = Crypto.des3_decrypt(a_b_key, iv, "CBC", final_msg_from_Alice).decode()
     if not Crypto.nonce_difference_is_1(N3_minus_1, N3):
-        print("Alice didn't send correct N3-1")
-    print("Received correct value for N3-1")
+        print("Alice didn't send correct N3-1\n")
+    print("Received correct value for N3-1\n")
 
 #### START OF PROGRAM ####
 
@@ -58,20 +58,21 @@ while 1:
         print("Created nonce Nb:", nonce, "\n")
         # Send encrypted nonce to Alice
         ciphertext = Crypto.des3_encrypt(b_key, iv, "CBC", nonce)
-        print("Encrypted nonce to send to Alice:", ciphertext, "\n")
+        print("Sent encrypted nonce to send to Alice\n")
         connection_socket.send(ciphertext)
 
     else:
         [a_b_key, N2] = _parse_ticket_msg(msg_from_Alice)
         print("Got shared key from Alice:", a_b_key.decode(), "\n")
         print("Got nonce N2 from Alice:", N2, "\n")
-        msg = _create_final_msg(a_b_key, N2) # msg is Kab{N2-1,N3}
+        [N3, msg] = _create_final_msg(a_b_key, N2) # msg is Kab{N2-1,N3}
         connection_socket.send(msg)
         print("Sent Alice Kab{N2-1,N3}")
 
         # Parse final message from Alice to verify we received proper N3-1
         final_msg_from_Alice = connection_socket.recv(1024)
-        print("Received final authentication message from Alice")
+        print("Received final authentication message from Alice\n")
         _verify_final_msg(final_msg_from_Alice)
+        print("Extended Needham-Schroeder authentication complete\n")
 
     connection_socket.close()

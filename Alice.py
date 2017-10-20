@@ -45,7 +45,7 @@ def _create_Kab_N2(a_b_key, nonce_secret):
 
 # parse Kab{N2-1,N3}
 def _parse_bobs_response(response):
-    response = Crypto.des3_decrypt(a_b_key, iv, "CBC", response)
+    response = Crypto.des3_decrypt(a_b_key, iv, "CBC", response).decode()
     N2_minus_1 = response[:8] # nonce size = 8 bytes
     N3 = response[8:]
     if not Crypto.nonce_difference_is_1(N2_minus_1, N2):
@@ -79,7 +79,7 @@ client_socket.connect((server_name, server_port))
 msg = "I want to talk with you.\n"
 client_socket.send(msg.encode())
 enc_nonce_from_bob = client_socket.recv(1024)
-print("Alice got encrypted nonce from Bob:", enc_nonce_from_bob)
+print("Received encrypted nonce from Bob:\n")
 client_socket.close()
 
 # Create TCP connection with KDC, requesting ticket to Bob
@@ -101,16 +101,17 @@ client_socket.connect((server_name, server_port))
 [N2, Kab_N2] = _create_Kab_N2(a_b_key, nonce_secret) # nonce 2 encrypted with key AB
 msg = ticket_to_bob + Kab_N2 # concatenate bytes
 client_socket.send(msg)
-print("Sent ticket and encrypted nonce to bob:", msg, "\n")
+print("Sent ticket and encrypted nonce to Bob\n")
 
 # Receive and parse Bob's response
 response = client_socket.recv(1024)
-print("Alice got from Bob:", response, "\n")
+print("Received Kab{N2-1, N3} from Bob\n")
 N3 = _parse_bobs_response(response)
 
 # Send Bob final authentication message
 Kab_N3_minus_1 = _create_Kab_N3_minus_1(N3, a_b_key)
 client_socket.send(Kab_N3_minus_1)
-print("Sent Bob find authentication message")
+print("Sent Bob final authentication message (Kab{N3-1})\n")
+print("Extended Needham-Schroeder authentication complete\n")
 
 client_socket.close()
