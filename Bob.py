@@ -5,6 +5,29 @@
 import crypto_lib as Crypto
 from socket import *
 
+# Pulls out Alice's and Bob's shared key, and Alice's nonce N2.
+# msg_from_Alice is in bites, formatted as <ticket>,<Kab{N2}>
+def _parse_msg(msg_from_Alice):
+    # retrieve shared key from ticket
+    encrypted_ticket = msg_from_Alice[:32] # the encrypted ticket is 32 bytes
+    ticket = Crypto.des3_decrypt(b_key, iv, "CBC", encrypted_ticket)
+    #verify_ticket(ticket)
+    a_b_key = ticket[:16]
+    # decrypt N2
+    Kab_N2 = msg_from_Alice[32:]
+    N2 = Crypto.des3_decrypt(a_b_key, iv, "CBC", Kab_N2).decode()
+    return [a_b_key, N2]
+
+# Returns Kab{N2 - 1, N3}
+def _create_msg(a_b_key, N2):
+    N2_minus_1 = decrement_hash(N2)
+    N3 = Crypto.get_nonce(nonce_secret)
+    duo = N2_minus_1 + N3 # concatenate strings
+    msg = Crypto.des3_encrypt(a_b_key, iv, "CBC", duo)
+    return msg
+
+
+#### START OF PROGRAM ####
 
 server_port = 12000
 server_socket = socket(AF_INET, SOCK_STREAM)
@@ -13,21 +36,33 @@ server_socket.listen(1)
 msg_from_Alice = 0 # initialize
 
 # Symmetric key used by Bob and KDC
-b_kdc_key = b"--BobKDCBobKDC--"
+b_key = b"--BobKDCBobKDC--"
 iv = b"00000000"
 nonce_secret = "horsesflysnakeadjust"
-bob_id = 353535
+# IMPORTANT that user ids are 6 chars long. Otherwise program will break.
+bob_id = "353535"
 
 while 1:
     connection_socket, addr = server_socket.accept()
-    msg_from_Alice = connection_socket.recv(1024).decode()
-    print("Bob got from Alice:", msg_from_Alice)
-    nonce = Crypto.get_nonce(nonce_secret)
-    print("Nonce:", nonce)
-    # Send encrypted nonce to Alice
-    ciphertext = Crypto.des3_encrypt(b_kdc_key, iv, "CBC", nonce)
-    print("Encrypted nonce to send to Alice:", ciphertext)
-    print("Length of Encrypted nonce to send to Alice:", len(ciphertext))
+    msg_from_Alice = connection_socket.recv(1024)
 
-    connection_socket.send(ciphertext)
+    if msg_from_Alice == b"I want to talk with you.\n":
+        print("Bob got from Alice:", msg_from_Alice.decode())
+        nonce = Crypto.get_nonce(nonce_secret)
+        print("Created nonce Nb:", nonce, "\n")
+        # Send encrypted nonce to Alice
+        ciphertext = Crypto.des3_encrypt(b_key, iv, "CBC", nonce)
+        print("Encrypted nonce to send to Alice:", ciphertext, "\n")
+        connection_socket.send(ciphertext)
+
+    else:
+        [a_b_key, N2] = _parse_msg(msg_from_Alice)
+        print("Got shared key from Alice:", a_b_key.decode(), "\n")
+        print("Got nonce N2 from Alice:", N2, "\n")
+        msg = _create_msg(a_b_key, N2)
+        connection_socket.send(msg)
+
+
+
+
     connection_socket.close()

@@ -2,8 +2,10 @@
 # along with Bob and a Key Distribution Center (KDC).
 # This app implements both Needham-Schroeder and extended Needham-Schroeder.
 
+import base64
 import crypto_lib as Crypto
 from socket import *
+import sys
 
 # Returns a bytes object consisting of 3 concatenated parts:
 # N1, Alice wants Bob, Kb{Nb}
@@ -11,27 +13,45 @@ def _create_message_to_kdc(nonce_secret, alice_id, bob_id, enc_nonce_from_bob):
     nonce = Crypto.get_nonce(nonce_secret)
     request = alice_id + " wants " + bob_id
     msg = nonce.encode() + request.encode() + enc_nonce_from_bob
-    return msg
+    return [msg, nonce]
 
 # Pulls out N1, user id, Bob and Alice's shared key, and the ticket to Bob
 # from the KDC's response.
-# Raises an exception if N1 does not match what Alice sent, or if
+# Prints error and quits if N1 does not match what Alice sent, or if
 # user id does not match Bob's.
 def _parse_kdc_response(response):
-    response = Crypto.des3_decrypt(a_key, iv, "CBC", response
-    N1 = msg[:8].decode() # the nonce Alice created
-    
-    request = msg[8:(8 + len(" wants ") + len(alice_id) + len(bob_id))]
-    Kb_Nb = msg[-16:] # Bob's nonce encrypted with his key
-    Nb = Crypto.des3_decrypt(b_key, iv, "CBC", Kb_Nb).decode()
-    return [N1, request, Nb]
+    response = Crypto.des3_decrypt(a_key, iv, "CBC", response)
+    nonce = response[:8].decode() # the nonce Alice created. nonce is 8 bytes
+    if nonce != N1:
+        print("Received nonce:", nonce, " from kdc but expected:", N1, "\n")
+        sys.exit(0)
+    user_id = response[8:14].decode() # user id is 6 bytes
+    if user_id != bob_id:
+        print("Expected Bob's id from the kdc, but instead got:", user_id, "\n")
+        sys.exit(0)
+    print("Received Bob's correct userid from KDC:", user_id, "\n")
+    a_b_key = response[14:30].decode() # key is 16 bytes
+    print("Received key to communicate with Bob:", a_b_key, "\n")
+    ticket_to_bob = base64.decodestring(response[30:])
+    return [ticket_to_bob, a_b_key]
 
+# Creates a 64-bit nonce (N2 in NS protocol) and encrypts it with
+# Alice's and Bob's shared key
+def _create_Kab_N2(a_b_key, nonce_secret):
+    N2 = Crypto.get_nonce(nonce_secret)
+    print("Created nonce N2:", N2, "\n")
+    Kab_N2 = Crypto.des3_encrypt(a_b_key, iv, "CBC", N2)
+    return Kab_N2
+
+
+#### START OF PROGRAM ####
 
 # Alice's 3DES key suite with the KDC
 # Note: this 16-byte key this turned into 2 64-bit DES keys by 3DES lib fcns
-a_kdc_key = b'hidegoesdampbran'
+a_key = b'hidegoesdampbran'
 iv = b'00000000' # 8 bytes
 nonce_secret = "jumpfrostgrizzlyblack"
+# IMPORTANT that user ids are 6 chars long. Otherwise program will break.
 alice_id = "171717"
 bob_id = "353535"
 
@@ -44,7 +64,7 @@ client_socket.connect((server_name, server_port))
 msg = "I want to talk with you.\n"
 client_socket.send(msg.encode())
 enc_nonce_from_bob = client_socket.recv(1024)
-print("Alice got from Bob:", enc_nonce_from_bob)
+print("Alice got encrypted nonce from Bob:", enc_nonce_from_bob)
 client_socket.close()
 
 # Create TCP connection with KDC, requesting ticket to Bob
@@ -52,22 +72,21 @@ server_name = "localhost"
 server_port = 13000 # the port KDC is listening on
 client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.connect((server_name, server_port))
-msg = _create_message_to_kdc(nonce_secret, alice_id, bob_id, enc_nonce_from_bob)
+[msg, N1] = _create_message_to_kdc(nonce_secret, alice_id, bob_id, enc_nonce_from_bob)
 client_socket.send(msg)
 kdc_response = client_socket.recv(1024)
 [ticket_to_bob, a_b_key] = _parse_kdc_response(kdc_response)
+client_socket.close()
 
-
-
-
-
-
-
-
-
-# plaintext = 'I love you.'
-# ciphertext = Crypto.des3_encrypt(key, iv, "CBC", plaintext)
-# print("ciphertext:", ciphertext)
-#
-# original = Crypto.des3_decrypt(key, iv, "CBC", ciphertext)
-# print(original)
+# Send ticket and encrypted nonce to Bob
+server_name = "localhost"
+server_port = 12000 # the port Bob is listening on
+client_socket = socket(AF_INET, SOCK_STREAM)
+client_socket.connect((server_name, server_port))
+Kab_N2 = _create_Kab_N2(a_b_key, nonce_secret) # nonce 2 encrypted with key AB
+msg = ticket_to_bob + Kab_N2 # concatenate bytes
+client_socket.send(msg)
+print("Sent ticket and encrypted nonce to bob:", msg, "\n")
+response = client_socket.recv(1024)
+print("Alice got from Bob:", response, "\n")
+client_socket.close()
