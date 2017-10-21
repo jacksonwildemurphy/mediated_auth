@@ -1,5 +1,6 @@
 from Crypto.Cipher import DES3
 import hashlib
+import sys
 import time
 
 
@@ -61,3 +62,27 @@ def nonce_difference_is_1(N_r, N_o):
         return True
     else:
         return False
+
+# Checks commandline arguments to determine whether NS or extended NS
+# protocol should be used
+def get_app_mode(sys_args):
+    if sys_args[1] == "-v":
+        return "extended-ns"
+    else:
+        return "normal-ns"
+
+# Checks commandline arguments to determine whether CBC or ECB encryption
+# should be used. Note: this only applies to regular NS. This program always
+# uses CBC for the extended NS protocol. Program exits if CL args are bad
+def get_encryption_mode(sys_args):
+    if sys_args[2] == "ecb":
+        return "ECB"
+    elif sys_args[2] == "cbc":
+        return "CBC"
+    elif sys_args[1] == "-v" and sys_args[2] == "extended-ns":
+        return "CBC"
+    else:
+        print("Bad input arguments. The 3 possible options are:")
+        print("1) -v extended-ns\n2) -m ecb")
+        print("3) -m cbc")
+        sys.exit(0)
