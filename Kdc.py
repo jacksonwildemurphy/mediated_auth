@@ -11,18 +11,19 @@ import sys
 # Returns N1, the request, and Nb (if present) rfrom the message from Alice
 def _parse_msg(msg, b_key, iv):
     N1 = msg[:8].decode() # the nonce Alice created
-    request = msg[8:(8 + len(" wants ") + len(alice_id) + len(bob_id))]
+    request = msg[8:(8 + len(alice_id) + len(bob_id))]
     if auth_protocol == "extended-ns":
-        Kb_Nb = msg[-16:] # Bob's nonce encrypted with his key
+        Kb_Nb = msg[-8:] # Bob's nonce encrypted with his key
         Nb = Crypto.des3_decrypt(b_key, iv, encryption_mode, Kb_Nb).decode()
     else:
         Nb = 0
     return [N1, request, Nb]
 
-# Request should be of the form "<alice id> wants <bob id>"
+# Request should be of the form "<alice id><bob id>"
 def _is_bad_request(request, alice_id, bob_id):
-    if request.split()[0] != alice_id or request.split()[2] != bob_id:
+    if request[:8] != alice_id or request[8:] != bob_id: #id's are 8 bytes long
         return False
+    print("Received valid request\n")
     return True
 
 def _create_ticket(b_key, a_b_key, alice_id, Nb):
@@ -30,7 +31,7 @@ def _create_ticket(b_key, a_b_key, alice_id, Nb):
     if auth_protocol == "extended-ns":
         contents += Nb
     ticket = Crypto.des3_encrypt(b_key, iv, encryption_mode, contents)
-    print("length of ticket to bob:", len(ticket))
+    print("length of encrypted ticket to bob:", len(ticket), "\n")
     return ticket
 
 # Concatenates the input parameters (stringifying the ticket to bob)
@@ -38,10 +39,22 @@ def _create_ticket(b_key, a_b_key, alice_id, Nb):
 def _create_msg(N1, bob_id, a_b_key, ticket_to_bob):
     # ticket_to_bob is just bytes with no discernible encoding (e.g. utf-8).
     # So first convert to base64 byte string and then convert that to a string
+    #print("Original encrypted ticket:", ticket_to_bob)
     ticket_to_bob = base64.encodestring(ticket_to_bob).decode()
+    print("Decoded Ticket to bob length:", len(ticket_to_bob))
+    # add padding string to make ticket a multiple of 8 bytes
+    pad_len = 8 - (len(ticket_to_bob) % 8)
+    padding = "0" *  pad_len
+    ticket_to_bob += padding
+    #print("Decoded encrypted ticket:", ticket_to_bob)
+    #ticket_to_bob += "000"
+    print("Decoded Ticket to bob length with padding:", len(ticket_to_bob))
+
+    print("Decoded decrypted ticket with added padding:", ticket_to_bob)
     contents = N1 + bob_id + a_b_key.decode() + ticket_to_bob
-    print("contents:", contents)
-    print("length of contents:", len(contents))
+    print("unencrypted contents 2 alice:", contents)
+    #print("contents:", contents)
+    #print("length of contents:", len(contents))
     msg = Crypto.des3_encrypt(a_key, iv, encryption_mode, contents)
     return msg
 
@@ -54,9 +67,9 @@ a_key = b'hidegoesdampbran'
 b_key = b"--BobKDCBobKDC--"
 a_b_key = b"realbakejumpblue"
 iv = b'00000000' # 8 bytes
-# IMPORTANT that user ids are 6 chars long. Otherwise program will break.
-alice_id = "171717"
-bob_id = "353535"
+# IMPORTANT that user ids are 8 chars long. Otherwise program will break.
+alice_id = "17171717"
+bob_id = "35353535"
 
 # Determine the protocol and encryption mode to use
 auth_protocol = Crypto.get_app_mode(sys.argv)

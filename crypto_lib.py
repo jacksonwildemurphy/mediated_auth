@@ -22,9 +22,9 @@ def _create_des3_cipher(key, iv, mode):
 def des3_encrypt(key, iv, mode, msg):
     mode = _get_des3_mode(mode)
     cipher = _create_des3_cipher(key, iv, mode)
-    padding_len = 8 - len(msg) % 8
-    padding = chr(padding_len) * padding_len # a la PKCS5
-    msg += padding
+    #padding_len = 8 - len(msg) % 8
+    #padding = chr(padding_len) * padding_len # a la PKCS5
+    #msg += padding
     return cipher.encrypt(msg)
 
 
@@ -32,8 +32,8 @@ def des3_decrypt(key, iv, mode, msg):
     mode = _get_des3_mode(mode)
     cipher = _create_des3_cipher(key, iv, mode)
     result = cipher.decrypt(msg)
-    pad_len = (result[-1])
-    result = result[:-pad_len]
+    #pad_len = (result[-1])
+    #result = result[:-pad_len]
     return result
 
 # Returns a nonce created using a secret and the length of time elapsed since

@@ -19,7 +19,7 @@ def _handle_client(connection_socket):
         print("Created nonce Nb:", nonce, "\n")
         # Send encrypted nonce to Alice
         ciphertext = Crypto.des3_encrypt(b_key, iv, encryption_mode, nonce)
-        print("Sent encrypted nonce to send to Alice\n")
+        print("Sent encrypted nonce to send to Alice with length:", len(ciphertext), "\n")
         connection_socket.send(ciphertext)
 
     else:
@@ -51,13 +51,19 @@ def _parse_ticket_msg(msg_from_Alice):
     ticket_len = 32 if auth_protocol == "extended-ns" else 24 # bytes
     encrypted_ticket = msg_from_Alice[:ticket_len]
     ticket = Crypto.des3_decrypt(b_key, iv, encryption_mode, encrypted_ticket)
+    print("Got decrypted ticket of:", ticket)
     if auth_protocol == "extended-ns": # Check that Nb received is correct
         #verify_ticket(ticket)
         pass
     a_b_key = ticket[:16]
     # decrypt N2
     Kab_N2 = msg_from_Alice[ticket_len:]
-    N2 = Crypto.des3_decrypt(a_b_key, iv, encryption_mode, Kab_N2).decode()
+    print("Got Kab_N2 with length:", len(Kab_N2))
+    try:
+        N2 = Crypto.des3_decrypt(a_b_key, iv, encryption_mode, Kab_N2).decode()
+    except UnicodeDecodeError:
+        print("ERROR: Decrypting N4 nonce is gibberish. Nice try Trudy!")
+        sys.exit(0)
     return [a_b_key, N2]
 
 # Returns N3, and Kab{N2 - 1, N3}
@@ -72,8 +78,9 @@ def _create_final_msg(a_b_key, N2):
 def _verify_final_msg(final_msg_from_Alice, N3, a_b_key):
     N3_minus_1 = Crypto.des3_decrypt(a_b_key, iv, encryption_mode, final_msg_from_Alice).decode()
     if not Crypto.nonce_difference_is_1(N3_minus_1, N3):
-        print("Alice didn't send correct N3-1\n")
-    print("Received correct value for N3-1\n")
+        print("Didn't receive correct N3-1\n")
+    else:
+        print("Received correct value for N3-1\n")
 
 #### START OF PROGRAM ####
 
@@ -81,8 +88,8 @@ def _verify_final_msg(final_msg_from_Alice, N3, a_b_key):
 b_key = b"--BobKDCBobKDC--"
 iv = b"00000000"
 nonce_secret = "horsesflysnakeadjust"
-# IMPORTANT that user ids are 6 chars long. Otherwise program will break.
-bob_id = "353535"
+# IMPORTANT that user ids are 8 chars long. Otherwise program will break.
+bob_id = "35353535"
 
 # Determine the protocol and encryption mode to use
 auth_protocol = Crypto.get_app_mode(sys.argv)

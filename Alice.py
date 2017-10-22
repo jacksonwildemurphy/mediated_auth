@@ -12,7 +12,7 @@ import sys
 # If regular NS protocol is used, Kb{Nb} is not included
 def _create_message_to_kdc(nonce_secret, alice_id, bob_id, enc_nonce_from_bob):
     nonce = Crypto.get_nonce(nonce_secret)
-    request = alice_id + " wants " + bob_id
+    request = alice_id + bob_id
     msg = nonce.encode() + request.encode()
     if auth_protocol == "extended-ns":
         msg += enc_nonce_from_bob
@@ -28,14 +28,18 @@ def _parse_kdc_response(response):
     if nonce != N1:
         print("Received nonce:", nonce, " from kdc but expected:", N1, "\n")
         sys.exit(0)
-    user_id = response[8:14].decode() # user id is 6 bytes
+    user_id = response[8:16].decode() # user id is 8 bytes
     if user_id != bob_id:
         print("Expected Bob's id from the kdc, but instead got:", user_id, "\n")
         sys.exit(0)
     print("Received Bob's correct userid from KDC:", user_id, "\n")
-    a_b_key = response[14:30].decode() # key is 16 bytes
+    a_b_key = response[16:32].decode() # key is 16 bytes
     print("Received key to communicate with Bob:", a_b_key, "\n")
-    ticket_to_bob = base64.decodestring(response[30:])
+    # ticket was sent with some trailing padding
+    ticket_padding_len = 3 if auth_protocol == "extended-ns" else 7
+    print("Ticket patting has length:", ticket_padding_len)
+    ticket_to_bob = base64.decodestring(response[32:-ticket_padding_len])
+    print("Decoded ticket to bob as:", ticket_to_bob)
     return [ticket_to_bob, a_b_key]
 
 # Creates a 64-bit nonce (N2 in NS protocol) and encrypts it with
@@ -78,9 +82,9 @@ def _create_Kab_N3_minus_1(N3, a_b_key):
 a_key = b'hidegoesdampbran'
 iv = b'00000000' # 8 bytes
 nonce_secret = "jumpfrostgrizzlyblack"
-# IMPORTANT that user ids are 6 chars long. Otherwise program will break.
-alice_id = "171717"
-bob_id = "353535"
+# IMPORTANT that user ids are 8 chars long. Otherwise program will break.
+alice_id = "17171717"
+bob_id = "35353535"
 enc_nonce_from_bob = 0 # initialize (will not be used in regular NS protocol)
 
 # Determine the protocol and encryption mode to use

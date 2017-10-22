@@ -35,7 +35,7 @@ print("Replayed sniffed message to Bob\n")
 
 # Receive Bob's response Kab{N2-1,N4}
 response1 = client_socket.recv(1024)
-print("Received Kab{N2-1,N4} from Bob\n")
+print("Received Kab{N2-1,N4} from Bob having length:", len(response1), "\n")
 
 # Form ticket,Kab{N4}
 ticket_len = 24 # 24 bytes
@@ -60,5 +60,5 @@ print("Sent Bob Kab{N4-1} via the first connection\n")
 
 # Clean up connections
 client_socket.close()
-client_socket2.close()
+#client_socket2.close() # keep this connection open to make printing more clear
 server_socket.close()
