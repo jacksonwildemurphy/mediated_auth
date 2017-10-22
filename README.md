@@ -6,7 +6,9 @@ When normal Needham-Schroeder is used, specify between using cipher block chaini
 
 Bonus: When the regular Needham-Schroeder protocol is used, a fourth entity, Trudy, attempts a replay attack to impersonate Alice. This succeeds when the encryption type is ecb
 
-# Example 
+Note: This application uses python 3. To get the following examples to work, you may need to replace `python` with `python3`
+
+# Examples 
 ### Extended Needham-Schroeder protocol 
 Note: Using extended NS protocol uses Cipher Block Chaining by default
 
