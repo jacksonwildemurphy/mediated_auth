@@ -1,7 +1,15 @@
-# The key distribution center (KDC) is 1 of 3 programs in this
-# mediated key exchange application, along with Alice and Bob.
-# This application implements both Needham-Schroeder and extended Needham-Schroeder.
-
+# This Key Distribution Center mediates the mutual authentication of Bob and Alice.
+# The specific protocol and encryption mode used depends on the commandline
+# parameters. E.g.
+#
+#   Kdc.py -v extended-ns
+# uses the extended Needham-Schroeder protocol and Cipher Block Chaining
+#   Kdc.py -m ecb
+# uses the regular Needham-Schroeder protocol and Electronic Code Book encryption
+#   Kdc.py -m cbc
+# uses the regular Needham-Schroeder protocol and Cipher Block Chaining
+#
+# Written by Jackson Murphy. Last updated October 22, 2017
 
 import base64
 import crypto_lib as Crypto

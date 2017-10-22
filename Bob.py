@@ -1,6 +1,18 @@
-# Bob is 1 of 3 programs in this mediated key exchange application,
-# along with Alice and a Key Distribution Center (KDC).
-# This app implements both Needham-Schroeder and extended Needham-Schroeder.
+# Bob mutually authenticates with Alice, with the assistance of a
+# Key Distribution Center (KDC). The specific protocol and encryption mode
+# used depends on the commandline parameters. E.g.
+#
+#   Bob.py -v extended-ns
+# uses the extended Needham-Schroeder protocol and Cipher Block Chaining
+#   Bob.py -m ecb
+# uses the regular Needham-Schroeder protocol and Electronic Code Book encryption
+#   Bob.py -m cbc
+# uses the regular Needham-Schroeder protocol and Cipher Block Chaining
+#
+# In this application, Bob is a concurrent server, and Alice is a client
+#
+# Written by Jackson Murphy. Last updated October 22, 2017
+
 
 import crypto_lib as Crypto
 from socket import *

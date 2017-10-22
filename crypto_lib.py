@@ -1,3 +1,5 @@
+# Written by Jackson Murphy. Last updated October 22, 2017
+
 from Crypto.Cipher import DES3
 import hashlib
 import sys
