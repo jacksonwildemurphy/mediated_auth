@@ -36,7 +36,9 @@ Note: Using extended NS protocol uses Cipher Block Chaining by default
   `python Alice.py -m ecb`
 
 ### Normal Needham-Schroeder protocol using CBC
-(Same as for ECB, just replace `-m ecb` with `-m cbc`
+(Same as for ECB, just replace `-m ecb` with `-m cbc`)
+
+Written by Jackson Murphy
 
 
 
