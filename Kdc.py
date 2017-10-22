@@ -19,19 +19,20 @@ def _parse_msg(msg, b_key, iv):
         Nb = 0
     return [N1, request, Nb]
 
-# Request should be of the form "<alice id><bob id>"
+# Request should be of the form b"<alice id><bob id>"
 def _is_bad_request(request, alice_id, bob_id):
-    if request[:8] != alice_id or request[8:] != bob_id: #id's are 8 bytes long
-        return False
+    request_str = request.decode() # convert from bytes to string
+    if request_str[:8] != alice_id or request_str[8:] != bob_id: #id's are 8 bytes long
+        print("Received invalid request!\n")
+        return True
     print("Received valid request\n")
-    return True
+    return False
 
 def _create_ticket(b_key, a_b_key, alice_id, Nb):
     contents = a_b_key.decode() + alice_id
     if auth_protocol == "extended-ns":
         contents += Nb
     ticket = Crypto.des3_encrypt(b_key, iv, encryption_mode, contents)
-    print("length of encrypted ticket to bob:", len(ticket), "\n")
     return ticket
 
 # Concatenates the input parameters (stringifying the ticket to bob)
@@ -39,22 +40,12 @@ def _create_ticket(b_key, a_b_key, alice_id, Nb):
 def _create_msg(N1, bob_id, a_b_key, ticket_to_bob):
     # ticket_to_bob is just bytes with no discernible encoding (e.g. utf-8).
     # So first convert to base64 byte string and then convert that to a string
-    #print("Original encrypted ticket:", ticket_to_bob)
     ticket_to_bob = base64.encodestring(ticket_to_bob).decode()
-    print("Decoded Ticket to bob length:", len(ticket_to_bob))
     # add padding string to make ticket a multiple of 8 bytes
     pad_len = 8 - (len(ticket_to_bob) % 8)
     padding = "0" *  pad_len
     ticket_to_bob += padding
-    #print("Decoded encrypted ticket:", ticket_to_bob)
-    #ticket_to_bob += "000"
-    print("Decoded Ticket to bob length with padding:", len(ticket_to_bob))
-
-    print("Decoded decrypted ticket with added padding:", ticket_to_bob)
     contents = N1 + bob_id + a_b_key.decode() + ticket_to_bob
-    print("unencrypted contents 2 alice:", contents)
-    #print("contents:", contents)
-    #print("length of contents:", len(contents))
     msg = Crypto.des3_encrypt(a_key, iv, encryption_mode, contents)
     return msg
 
@@ -86,12 +77,13 @@ msg_from_Alice = 0 # initialize
 while 1:
     connection_socket, addr = server_socket.accept()
     msg_from_alice = connection_socket.recv(1024)
-    print("KDC got from Alice:", msg_from_alice)
+    print("KDC got msg from Alice\n")
     [N1, request, Nb] = _parse_msg(msg_from_alice, b_key, iv)
     if _is_bad_request(request, alice_id, bob_id):
-        connection_socket.send("Badly formed request".encode())
+        connection_socket.send("Badly formed request....".encode())
 
     ticket_to_bob = _create_ticket(b_key, a_b_key, alice_id, Nb)
     msg_to_alice = _create_msg(N1, bob_id, a_b_key, ticket_to_bob)
     connection_socket.send(msg_to_alice)
+    print("KDC sent response to Alice\n")
     connection_socket.close()

@@ -14,25 +14,28 @@ def _handle_client(connection_socket):
     msg_from_Alice = connection_socket.recv(1024)
 
     if msg_from_Alice == b"I want to talk with you.\n":
-        print("Bob got from Alice:", msg_from_Alice.decode())
+        print("Bob got extended-NS initiation message from Alice")
         nonce = Crypto.get_nonce(nonce_secret)
-        print("Created nonce Nb:", nonce, "\n")
         # Send encrypted nonce to Alice
         ciphertext = Crypto.des3_encrypt(b_key, iv, encryption_mode, nonce)
-        print("Sent encrypted nonce to send to Alice with length:", len(ciphertext), "\n")
+        print("Sent encrypted nonce Kb{Nb} to Alice")
         connection_socket.send(ciphertext)
 
     else:
         [a_b_key, N2] = _parse_ticket_msg(msg_from_Alice)
-        print("Got shared key from Alice:", a_b_key.decode(), "\n")
-        print("Got nonce N2 from Alice:", N2, "\n")
+        print("Got shared key from Alice:", a_b_key.decode())
+        print("Got nonce N2 from Alice:", N2)
         [N3, msg] = _create_final_msg(a_b_key, N2) # msg is Kab{N2-1,N3}
         connection_socket.send(msg)
-        print("Sent Alice Kab{N2-1,N3}\n")
+        print("Sent Alice Kab{N2-1,N3} (or {N2-1,N4} or {N4-1,N5} in the case of Trudy)")
 
         # Parse final message from Alice to verify we received proper N3-1
         final_msg_from_Alice = connection_socket.recv(1024)
-        print("Received final authentication message from Alice\n")
+        if final_msg_from_Alice == b"":
+            connection_socket.close()
+            sys.exit(0)
+
+        print("Received final authentication message from Alice")
         _verify_final_msg(final_msg_from_Alice, N3, a_b_key)
 
         if auth_protocol == "extended-ns":
@@ -51,14 +54,12 @@ def _parse_ticket_msg(msg_from_Alice):
     ticket_len = 32 if auth_protocol == "extended-ns" else 24 # bytes
     encrypted_ticket = msg_from_Alice[:ticket_len]
     ticket = Crypto.des3_decrypt(b_key, iv, encryption_mode, encrypted_ticket)
-    print("Got decrypted ticket of:", ticket)
     if auth_protocol == "extended-ns": # Check that Nb received is correct
         #verify_ticket(ticket)
         pass
     a_b_key = ticket[:16]
     # decrypt N2
     Kab_N2 = msg_from_Alice[ticket_len:]
-    print("Got Kab_N2 with length:", len(Kab_N2))
     try:
         N2 = Crypto.des3_decrypt(a_b_key, iv, encryption_mode, Kab_N2).decode()
     except UnicodeDecodeError:
@@ -78,9 +79,9 @@ def _create_final_msg(a_b_key, N2):
 def _verify_final_msg(final_msg_from_Alice, N3, a_b_key):
     N3_minus_1 = Crypto.des3_decrypt(a_b_key, iv, encryption_mode, final_msg_from_Alice).decode()
     if not Crypto.nonce_difference_is_1(N3_minus_1, N3):
-        print("Didn't receive correct N3-1\n")
+        print("Didn't receive correct value for nonce-1!\n")
     else:
-        print("Received correct value for N3-1\n")
+        print("Received correct value for nonce-1")
 
 #### START OF PROGRAM ####
 

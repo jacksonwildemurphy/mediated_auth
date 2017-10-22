@@ -23,6 +23,9 @@ def _create_message_to_kdc(nonce_secret, alice_id, bob_id, enc_nonce_from_bob):
 # Prints error and quits if N1 does not match what Alice sent, or if
 # user id does not match Bob's.
 def _parse_kdc_response(response):
+    if response == b"Badly formed request....":
+        print("The request to the KDC was badly formed. Shutting down.")
+        sys.exit(0)
     response = Crypto.des3_decrypt(a_key, iv, encryption_mode, response)
     nonce = response[:8].decode() # the nonce Alice created. nonce is 8 bytes
     if nonce != N1:
@@ -32,14 +35,12 @@ def _parse_kdc_response(response):
     if user_id != bob_id:
         print("Expected Bob's id from the kdc, but instead got:", user_id, "\n")
         sys.exit(0)
-    print("Received Bob's correct userid from KDC:", user_id, "\n")
+    print("Received Bob's correct userid from KDC\n")
     a_b_key = response[16:32].decode() # key is 16 bytes
-    print("Received key to communicate with Bob:", a_b_key, "\n")
+    print("Received key to communicate with Bob\n")
     # ticket was sent with some trailing padding
     ticket_padding_len = 3 if auth_protocol == "extended-ns" else 7
-    print("Ticket patting has length:", ticket_padding_len)
     ticket_to_bob = base64.decodestring(response[32:-ticket_padding_len])
-    print("Decoded ticket to bob as:", ticket_to_bob)
     return [ticket_to_bob, a_b_key]
 
 # Creates a 64-bit nonce (N2 in NS protocol) and encrypts it with
@@ -65,9 +66,9 @@ def _parse_bobs_response(response):
     N2_minus_1 = response[:8] # nonce size = 8 bytes
     N3 = response[8:]
     if not Crypto.nonce_difference_is_1(N2_minus_1, N2):
-        print("Bob did not send correct N2-1"); sys.exit(0)
-    print("Received correct value for N2-1")
-    print("Received N3:", N3)
+        print("Bob did not send correct N2-1\n"); sys.exit(0)
+    print("Received correct value for N2-1\n")
+    print("Received N3\n")
     return N3
 
 
@@ -99,6 +100,7 @@ if auth_protocol == "extended-ns":
     client_socket.connect((server_name, server_port))
     msg = "I want to talk with you.\n"
     client_socket.send(msg.encode())
+    print("Sent initiation request to Bob\n")
     enc_nonce_from_bob = client_socket.recv(1024)
     print("Received encrypted nonce from Bob\n")
     client_socket.close()
@@ -110,7 +112,9 @@ client_socket = socket(AF_INET, SOCK_STREAM)
 client_socket.connect((server_name, server_port))
 [msg, N1] = _create_message_to_kdc(nonce_secret, alice_id, bob_id, enc_nonce_from_bob)
 client_socket.send(msg)
+print("Sent request to KDC\n")
 kdc_response = client_socket.recv(1024)
+print("Received response from KDC\n")
 [ticket_to_bob, a_b_key] = _parse_kdc_response(kdc_response)
 client_socket.close()
 
